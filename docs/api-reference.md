@@ -2,11 +2,12 @@
 
 ## REST API Endpoints
 
-Start the FastAPI server:
+Start the FastAPI server (with venv activated):
 
 ```bash
-set PYTHONPATH=src
-.venv/Scripts/python.exe -m uvicorn kendocenter.main:app --port 8001
+set PYTHONPATH=src            & REM Windows
+# export PYTHONPATH=src       # macOS / Linux
+python -m uvicorn kendocenter.main:app --port 8001
 ```
 
 Interactive API docs available at `http://localhost:8001/docs`.

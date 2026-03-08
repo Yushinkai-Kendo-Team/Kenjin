@@ -1,6 +1,6 @@
 # Demo Questions
 
-Quick reference for demonstrating YKC Kenjin's RAG capabilities. Questions are grouped by what they showcase.
+Quick reference for demonstrating YSK Kenjin's RAG capabilities. Questions are grouped by what they showcase.
 
 ## Glossary Lookup (exact term match + semantic results)
 
@@ -137,20 +137,22 @@ curl -X POST http://localhost:8001/api/search \
 
 ```bash
 # Single query
-.venv/Scripts/python.exe scripts/query_cli.py "What is zanshin?"
+python scripts/query_cli.py "What is zanshin?"
 
 # With full prompt output (shows the formatted prompt for Claude)
-.venv/Scripts/python.exe scripts/query_cli.py --prompt "Explain zanshin in kendo practice"
+python scripts/query_cli.py --prompt "Explain zanshin in kendo practice"
 
 # Interactive mode
-.venv/Scripts/python.exe scripts/query_cli.py --interactive
+python scripts/query_cli.py --interactive
 ```
 
 ## API Quick Test
 
 ```bash
-# Start server
-PYTHONPATH=src .venv/Scripts/python.exe -m uvicorn kendocenter.main:app --port 8001
+# Start server (set PYTHONPATH first — see README for OS-specific syntax)
+set PYTHONPATH=src            & REM Windows
+# export PYTHONPATH=src       # macOS / Linux
+python -m uvicorn kendocenter.main:app --port 8001
 
 # Health check
 curl http://localhost:8001/api/health

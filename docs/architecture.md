@@ -1,6 +1,6 @@
 # Architecture
 
-YKC Kenjin has two main pipelines: **Ingestion** (offline, when you add new documents) and **Retrieval** (online, when you ask questions).
+YSK Kenjin has two main pipelines: **Ingestion** (offline, when you add new documents) and **Retrieval** (online, when you ask questions).
 
 ## Ingestion Pipeline
 
@@ -108,7 +108,7 @@ This saves ~78% metadata storage and scales linearly with more documents.
 ## Project Structure
 
 ```
-YKC-Kenjin/
+YSK-Kenjin/
 ├── .env                          # Config: paths, model, thresholds
 ├── pyproject.toml                # Python package definition + dependencies
 │

@@ -1,12 +1,12 @@
-# YKC Kenjin - Project Plan
+# YSK Kenjin - Project Plan
 
 ## Vision
 
-YKC Kenjin (Yushinkai Kenjin) is the AI assistant for **Yushinkai Kendo Club**. It helps members and the kendo community with:
+YSK Kenjin (Yushinkai Kenjin) is the AI assistant for **Yushinkai Kendo Team**. It helps members and the kendo community with:
 
 1. **Deep kendo knowledge** — explains any term, technique, or concept with references to articles, books, and sensei teachings
 2. **Kendo-aware video translation** — Japanese audio transcription with correct kendo terminology (not generic translation)
-3. **Club intelligence** — understands Yushinkai's activities, events, and community through Facebook and social media data
+3. **Team intelligence** — understands Yushinkai's activities, events, and community through Facebook and social media data
 4. **Technique encyclopedia** — categorized techniques with definitions, illustrations, and different styles from different sensei
 
 The core philosophy: **accuracy over breadth**. Better to answer 100 kendo questions perfectly with citations than 1000 questions with hallucinations. Every phase prioritizes RAG quality and retrieval accuracy before adding new features.
@@ -123,26 +123,26 @@ Everything below has been built and tested:
 - [ ] Better glossary matching: fuzzy matching, romaji/kanji normalization
 - [ ] Source quality weighting: glossary > articles > blogs in ranking
 
-### Phase 3 - Yushinkai Club Intelligence + YouTube Catalog
+### Phase 3 - Yushinkai Team Intelligence + YouTube Catalog
 
-**Goal:** Make YKC Kenjin the club's AI assistant and build a searchable catalog of kendo video resources.
+**Goal:** Make YSK Kenjin the team's AI assistant and build a searchable catalog of kendo video resources.
 
 **Part A: Facebook data ingestion**
 - [ ] Scrape/export Yushinkai Facebook page posts, photos, event announcements
 - [ ] Parse Facebook group discussions and member Q&A
 - [ ] Extract event schedules, training updates, tournament results
-- [ ] Ingest club-specific terminology and inside references
+- [ ] Ingest team-specific terminology and inside references
 
-**Part B: Club knowledge base**
-- [ ] Club member profiles (with consent): dan grade, years training, specialties
+**Part B: Team knowledge base**
+- [ ] Team member profiles (with consent): dan grade, years training, specialties
 - [ ] Training schedule and dojo information
-- [ ] Club event history and tournament results
-- [ ] Sensei teaching notes and club-specific guidance
+- [ ] Team event history and tournament results
+- [ ] Sensei teaching notes and team-specific guidance
 
-**Part C: Club-facing features**
-- [ ] "When is the next training?" — answers from club schedule data
+**Part C: Team-facing features**
+- [ ] "When is the next training?" — answers from team schedule data
 - [ ] "What did sensei teach last week?" — summarizes recent training posts
-- [ ] "Who in our club does jodan?" — member knowledge queries
+- [ ] "Who in our team does jodan?" — member knowledge queries
 - [ ] Event reminders and preparation guidance
 
 **Part D: YouTube video catalog**
@@ -198,7 +198,7 @@ Everything below has been built and tested:
 - [ ] Admin interface for adding/curating knowledge
 - [ ] User authentication, PostgreSQL migration
 - [ ] Personal bookmarks, training notes
-- [ ] Multi-club support (other kendo clubs can deploy their own instance)
+- [ ] Multi-team support (other kendo teams can deploy their own instance)
 
 ---
 
@@ -249,4 +249,4 @@ Sources organized in `KENDO_THEORY_DIR` (configured in `.env`) with per-folder `
 - Video transcriptions (`videos/` subfolder, Phase 5)
 - Sensei teaching notes
 - Tournament reports and analyses
-- Club training session summaries
+- Team training session summaries

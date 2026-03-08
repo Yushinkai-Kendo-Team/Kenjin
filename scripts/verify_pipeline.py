@@ -1,4 +1,4 @@
-"""Verify the YKC Kenjin retrieval pipeline and data integrity.
+"""Verify the YSK Kenjin retrieval pipeline and data integrity.
 
 Runs a battery of checks against the database, vector store, and retrieval
 pipeline to ensure everything is working correctly after ingestion.
@@ -287,7 +287,7 @@ def check_cross_source(pipeline: RetrievalPipeline, verbose: bool = False) -> bo
 def main():
     verbose = "--verbose" in sys.argv or "-v" in sys.argv
 
-    print("=== YKC Kenjin Pipeline Verification ===")
+    print("=== YSK Kenjin Pipeline Verification ===")
 
     results = []
     results.append(check_database(verbose))

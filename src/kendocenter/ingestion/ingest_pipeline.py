@@ -43,7 +43,7 @@ def run_ingestion(
         "sources_registered": 0,
     }
 
-    print("=== YKC Kenjin Ingestion Pipeline ===")
+    print("=== YSK Kenjin Ingestion Pipeline ===")
     print(f"Source directory: {theory_dir}")
     print()
 

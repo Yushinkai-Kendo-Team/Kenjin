@@ -1,10 +1,10 @@
-# YKC Kenjin
+# YSK Kenjin
 
-AI assistant for **Yushinkai Kendo Club** — a kendo knowledge retrieval system powered by RAG (Retrieval-Augmented Generation).
+AI assistant for **Yushinkai Kendo Team** — a kendo knowledge retrieval system powered by RAG (Retrieval-Augmented Generation).
 
-YKC Kenjin (Yushinkai Kenjin) helps kendo practitioners find accurate answers grounded in curated sources: glossary terms, translated articles, and blog content from the kendo community. Every answer comes with citations — no hallucinations.
+YSK Kenjin (Yushinkai Kenjin) helps kendo practitioners find accurate answers grounded in curated sources: glossary terms, translated articles, and blog content from the kendo community. Every answer comes with citations — no hallucinations.
 
-![YKC Kenjin Streamlit UI](docs/images/preview_streamlit.jpg)
+![YSK Kenjin Streamlit UI](docs/images/preview_streamlit.jpg)
 
 ## What It Does
 
@@ -20,21 +20,32 @@ YKC Kenjin (Yushinkai Kenjin) helps kendo practitioners find accurate answers gr
 # 1. Clone and create venv
 python -m venv .venv
 
-# 2. Install
-.venv/Scripts/pip.exe install -e ".[dev]"
+# 2. Activate venv
+# Windows (cmd):
+.venv\Scripts\activate
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# macOS / Linux:
+source .venv/bin/activate
 
-# 3. Configure environment
-cp .env.example .env
+# 3. Install
+pip install -e ".[dev]"
+
+# 4. Configure environment
+copy .env.example .env        # Windows
+# cp .env.example .env        # macOS / Linux
 # Edit .env — set KENDO_THEORY_DIR to your source documents folder
 
-# 4. Add source documents to your KENDO_THEORY_DIR (see docs/adding-content.md)
+# 5. Add source documents to your KENDO_THEORY_DIR (see docs/adding-content.md)
 
-# 5. Ingest and verify
-.venv/Scripts/python.exe scripts/ingest_all.py --reset
-.venv/Scripts/python.exe scripts/verify_pipeline.py
+# 6. Ingest and verify
+python scripts/ingest_all.py --reset
+python scripts/verify_pipeline.py
 
-# 6. Launch UI
-PYTHONPATH=src .venv/Scripts/python.exe -m streamlit run src/kendocenter/ui/app.py
+# 7. Launch UI
+set PYTHONPATH=src            # Windows
+# export PYTHONPATH=src       # macOS / Linux
+python -m streamlit run src/kendocenter/ui/app.py
 ```
 
 ## How It Works
@@ -69,7 +80,7 @@ You ask a kendo question
 
 ## Content Sources
 
-YKC Kenjin supports multiple source categories. You provide your own content — the repo contains only the code, not the data.
+YSK Kenjin supports multiple source categories. You provide your own content — the repo contains only the code, not the data.
 
 | Category | Description |
 |----------|-------------|
@@ -116,7 +127,7 @@ Python 3.12 / FastAPI / Streamlit / ChromaDB / SQLite / sentence-transformers / 
 - **Phase 1** (COMPLETE): Knowledge base + RAG pipeline + Streamlit UI + FastAPI + Claude Code CLI
 - **Phase 1.5** (COMPLETE): Source restructuring, metadata.yaml, source registry, blog scrapers (5 sources)
 - **Phase 2** (NEXT): RAG optimization (re-ranking, better embeddings, evaluation), Claude API integration
-- **Phase 3**: Yushinkai club intelligence (Facebook data, club events) + YouTube video catalog (metadata search)
+- **Phase 3**: Yushinkai team intelligence (Facebook data, team events) + YouTube video catalog (metadata search)
 - **Phase 4**: Japanese kendo terminology engine (JP-EN mapping, pronunciation data, Whisper prep)
 - **Phase 5**: Kendo video processing (transcription, kendo-aware translation, subtitles)
 - **Phase 6**: Web frontend (Next.js), technique encyclopedia, multi-user, PostgreSQL

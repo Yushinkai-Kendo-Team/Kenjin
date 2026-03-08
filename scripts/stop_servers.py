@@ -1,4 +1,4 @@
-"""Stop all running YKC Kenjin servers (uvicorn, streamlit).
+"""Stop all running YSK Kenjin servers (uvicorn, streamlit).
 
 Usage:
     python scripts/stop_servers.py
@@ -57,7 +57,7 @@ def main():
     pids = get_server_pids()
 
     if not pids:
-        print("No running YKC Kenjin servers found.")
+        print("No running YSK Kenjin servers found.")
         return
 
     print(f"Found {len(pids)} server process(es):\n")

@@ -1,1 +1,1 @@
-"""YKC Kenjin — AI assistant for Yushinkai Kendo Club."""
+"""YSK Kenjin — AI assistant for Yushinkai Kendo Team."""

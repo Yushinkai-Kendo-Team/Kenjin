@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """YKC Kenjin settings loaded from .env file."""
+    """YSK Kenjin settings loaded from .env file."""
 
     # Paths
     kendo_theory_dir: str = ""
