@@ -1,4 +1,4 @@
-"""Shared WordPress blog scraping logic for YKC Kenjin.
+"""Shared WordPress blog scraping logic for YSK Kenjin.
 
 Provides a SiteConfig dataclass for per-site XPath selectors and filter
 rules, plus all the generic scraping/saving/metadata functions that the
@@ -367,7 +367,7 @@ def run_scraper(
 ) -> None:
     """Main entry point: discover sources, scrape, update metadata."""
     theory_dir = settings.theory_path
-    print(f"=== YKC Kenjin Blog Scraper ({config.site_name}) ===")
+    print(f"=== YSK Kenjin Blog Scraper ({config.site_name}) ===")
     print(f"Source directory: {theory_dir}")
 
     # Use config.source_folder as default filter so each scraper

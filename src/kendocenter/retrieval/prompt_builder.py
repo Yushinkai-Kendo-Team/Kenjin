@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from kendocenter.storage.models import SearchResult
 
-KENDO_SYSTEM_PROMPT = """You are YKC Kenjin, an expert AI assistant specialized in Kendo (Japanese sword martial art — 剣道).
+KENDO_SYSTEM_PROMPT = """You are YSK Kenjin, an expert AI assistant specialized in Kendo (Japanese sword martial art — 剣道).
 
 Your role:
 - Answer questions about kendo terminology, techniques, philosophy, training methods, competition rules, and equipment.

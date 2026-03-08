@@ -1,4 +1,4 @@
-# Adding Content to YKC Kenjin
+# Adding Content to YSK Kenjin
 
 This guide explains how to add new documents to the knowledge base.
 
@@ -127,7 +127,7 @@ files:
 Rebuild the entire knowledge base (glossary + all articles):
 
 ```bash
-.venv/Scripts/python.exe scripts/ingest_all.py --reset
+python scripts/ingest_all.py --reset
 ```
 
 The `--reset` flag clears ChromaDB and rebuilds everything. This ensures clean, consistent data. With 5-10 sources, full re-ingestion takes only a few seconds.
@@ -136,10 +136,10 @@ The `--reset` flag clears ChromaDB and rebuilds everything. This ensures clean, 
 
 ```bash
 # Check database, vector store, and retrieval pipeline
-.venv/Scripts/python.exe scripts/verify_pipeline.py
+python scripts/verify_pipeline.py
 
 # Check all API endpoints
-.venv/Scripts/python.exe scripts/verify_api.py
+python scripts/verify_api.py
 ```
 
 Both scripts should show all checks passed. The pipeline check will confirm the new source was registered and chunks were created.
@@ -147,7 +147,7 @@ Both scripts should show all checks passed. The pipeline check will confirm the 
 ### Step 5: Test a query
 
 ```bash
-.venv/Scripts/python.exe scripts/query_cli.py "topic from your new article"
+python scripts/query_cli.py "topic from your new article"
 ```
 
 ## Adding a New Content Type
@@ -201,24 +201,24 @@ Each blog source has its own scraper script in `scripts/scraping/`:
 
 ```bash
 # Scrape kendo3ka (Vietnamese)
-.venv/Scripts/python.exe scripts/scraping/scrape_kendo3ka.py --dry-run
-.venv/Scripts/python.exe scripts/scraping/scrape_kendo3ka.py
+python scripts/scraping/scrape_kendo3ka.py --dry-run
+python scripts/scraping/scrape_kendo3ka.py
 
 # Scrape kenshi247 (English)
-.venv/Scripts/python.exe scripts/scraping/scrape_kenshi247.py --dry-run
-.venv/Scripts/python.exe scripts/scraping/scrape_kenshi247.py
+python scripts/scraping/scrape_kenshi247.py --dry-run
+python scripts/scraping/scrape_kenshi247.py
 
 # Scrape kendoinfo (English, Geoff Salmon)
-.venv/Scripts/python.exe scripts/scraping/scrape_kendoinfo.py --dry-run
-.venv/Scripts/python.exe scripts/scraping/scrape_kendoinfo.py
+python scripts/scraping/scrape_kendoinfo.py --dry-run
+python scripts/scraping/scrape_kendoinfo.py
 
 # Scrape nanseikan (English, Blogspot)
-.venv/Scripts/python.exe scripts/scraping/scrape_nanseikan.py --dry-run
-.venv/Scripts/python.exe scripts/scraping/scrape_nanseikan.py
+python scripts/scraping/scrape_nanseikan.py --dry-run
+python scripts/scraping/scrape_nanseikan.py
 
 # Scrape kendophilosophy (English, history & philosophy)
-.venv/Scripts/python.exe scripts/scraping/scrape_kendophilosophy.py --dry-run
-.venv/Scripts/python.exe scripts/scraping/scrape_kendophilosophy.py
+python scripts/scraping/scrape_kendophilosophy.py --dry-run
+python scripts/scraping/scrape_kendophilosophy.py
 ```
 
 The scraper:
@@ -231,8 +231,8 @@ The scraper:
 ### Step 3: Ingest and verify
 
 ```bash
-.venv/Scripts/python.exe scripts/ingest_all.py --reset
-.venv/Scripts/python.exe scripts/verify_pipeline.py
+python scripts/ingest_all.py --reset
+python scripts/verify_pipeline.py
 ```
 
 ## Article Format Requirements

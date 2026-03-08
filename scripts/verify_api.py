@@ -1,4 +1,4 @@
-"""Verify the YKC Kenjin FastAPI endpoints.
+"""Verify the YSK Kenjin FastAPI endpoints.
 
 Starts the server, runs API checks, then stops the server.
 
@@ -117,7 +117,7 @@ def check_root(verbose):
     """GET / — returns app name and version."""
     print("\n[1/9] GET / ...")
     status, body = api_get("/")
-    ok = status == 200 and body.get("name") == "YKC Kenjin"
+    ok = status == 200 and body.get("name") == "YSK Kenjin"
     print(f"  Status: {status}, name={body.get('name')}, version={body.get('version')}")
     if verbose:
         print(f"  Body: {json.dumps(body, indent=2)}")
@@ -337,7 +337,7 @@ def check_search_language_filter(verbose):
 def main():
     verbose = "--verbose" in sys.argv or "-v" in sys.argv
 
-    print("=== YKC Kenjin API Verification ===")
+    print("=== YSK Kenjin API Verification ===")
 
     # Start server
     print("\nStarting FastAPI server on port 8001...")

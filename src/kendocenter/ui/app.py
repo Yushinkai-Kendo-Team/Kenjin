@@ -1,4 +1,4 @@
-"""Streamlit UI for YKC Kenjin."""
+"""Streamlit UI for YSK Kenjin."""
 
 import sys
 from pathlib import Path
@@ -17,7 +17,7 @@ from kendocenter.generation.claude_cli import is_claude_available
 LOGO_URL = "https://avatars.githubusercontent.com/u/266327333"
 
 st.set_page_config(
-    page_title="YKC Kenjin",
+    page_title="YSK Kenjin",
     page_icon=LOGO_URL,
     layout="wide",
 )
@@ -41,8 +41,8 @@ def main():
     with col_logo:
         st.image(LOGO_URL, width=64)
     with col_title:
-        st.title("YKC Kenjin")
-        st.caption("AI Assistant for Yushinkai Kendo Club")
+        st.title("YSK Kenjin")
+        st.caption("AI Assistant for Yushinkai Kendo Team")
 
     # Sidebar
     with st.sidebar:
@@ -231,7 +231,7 @@ def main():
     # Footer
     st.markdown("---")
     st.caption(
-        "YKC Kenjin | Open-source kendo knowledge retrieval | AGPL-3.0 License"
+        "YSK Kenjin | Open-source kendo knowledge retrieval | AGPL-3.0 License"
     )
 
 

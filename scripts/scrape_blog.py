@@ -28,7 +28,7 @@ from base_scraper import run_scraper_all, make_arg_parser  # noqa: E402
 
 
 def main():
-    parser = make_arg_parser("Scrape blog articles for YKC Kenjin (deprecated)")
+    parser = make_arg_parser("Scrape blog articles for YSK Kenjin (deprecated)")
     args = parser.parse_args()
     run_scraper_all(source_filter=args.source, dry_run=args.dry_run)
 

@@ -53,7 +53,7 @@ def main():
     pipeline = RetrievalPipeline()
 
     if "--interactive" in sys.argv:
-        print("YKC Kenjin CLI — Type 'quit' to exit")
+        print("YSK Kenjin CLI — Type 'quit' to exit")
         while True:
             try:
                 question = input("\nAsk: ").strip()
