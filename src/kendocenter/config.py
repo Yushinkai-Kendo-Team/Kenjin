@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 8
     similarity_threshold: float = 0.7
 
+    # Re-ranking (Phase 2A)
+    reranker_enabled: bool = False
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    reranker_candidate_count: int = 20
+
+    # Chunking (Phase 2A)
+    chunking_max_tokens: int = 800
+    chunking_overlap_tokens: int = 100
+    chunking_prepend_title: bool = False
+
+    # Evaluation (Phase 2A)
+    eval_dataset_path: str = "data/eval/eval_dataset.yaml"
+
     # Optional: Claude API (for future use)
     anthropic_api_key: str = ""
 

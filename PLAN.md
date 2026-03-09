@@ -103,13 +103,13 @@ Everything below has been built and tested:
 
 **Goal:** Make the retrieval pipeline significantly more accurate and integrate direct LLM generation.
 
-**Part A: Retrieval quality**
-- [ ] Upgrade embedding model: evaluate `multilingual-e5-large` or `bge-m3` for better Japanese term handling
-- [ ] Implement re-ranking: retrieve top-K candidates, then re-rank with a cross-encoder for precision
-- [ ] Improve chunking strategy: experiment with semantic chunking (split by topic, not fixed token count)
-- [ ] Add chunk overlap tuning and evaluate impact on retrieval accuracy
-- [ ] Build evaluation dataset: 50+ question/answer pairs with expected source documents
-- [ ] Automated RAG evaluation pipeline: measure recall@k, precision, and answer relevance
+**Part A: Retrieval quality** ✓
+- [x] Upgrade embedding model: auto-prefix support for E5/BGE families (`embedder.py`), swap via `EMBEDDING_MODEL` env var
+- [x] Implement re-ranking: cross-encoder two-stage retrieval (`reranker.py`), toggle via `RERANKER_ENABLED` env var
+- [x] Improve chunking strategy: configurable chunk size/overlap + optional title prepend via settings
+- [x] Add chunk overlap tuning: `CHUNKING_MAX_TOKENS` and `CHUNKING_OVERLAP_TOKENS` env vars
+- [x] Build evaluation dataset: 52 Q&A pairs across 6 categories in `data/eval/eval_dataset.yaml`
+- [x] Automated RAG evaluation pipeline: recall@k, MRR, glossary hit rate, keyword recall (`scripts/run_eval.py`)
 
 **Part B: Claude API integration**
 - [ ] Add ANTHROPIC_API_KEY support — generate answers directly in the pipeline

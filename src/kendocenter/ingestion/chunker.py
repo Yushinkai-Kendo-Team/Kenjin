@@ -63,6 +63,7 @@ def chunk_article_paragraphs(
     max_chunk_tokens: int = 800,
     overlap_tokens: int = 100,
     source_key: str = "",
+    title: str = "",
 ) -> list[DocumentChunk]:
     """Chunk article paragraphs with overlap, respecting paragraph boundaries.
 
@@ -71,9 +72,12 @@ def chunk_article_paragraphs(
     - Target ~800 tokens per chunk
     - ~100 token overlap for continuity
     - Each chunk gets compact metadata with source_key reference
+    - Optional title prefix for better topic association
     """
     if not paragraphs:
         return []
+
+    title_prefix = f"Title: {title}\n\n" if title else ""
 
     chunks: list[DocumentChunk] = []
     current_paras: list[str] = []
@@ -84,7 +88,7 @@ def chunk_article_paragraphs(
         nonlocal chunk_index
         if not current_paras:
             return
-        text = "\n\n".join(current_paras)
+        text = title_prefix + "\n\n".join(current_paras)
         chunk = DocumentChunk(
             id=_make_id(text, f"art_{language}"),
             text=text,
@@ -132,8 +136,10 @@ def chunk_article(
     max_chunk_tokens: int = 800,
     overlap_tokens: int = 100,
     source_key: str = "",
+    prepend_title: bool = False,
 ) -> list[DocumentChunk]:
     """Chunk an article's English and Vietnamese content."""
+    title = article.title if prepend_title else ""
     chunks = []
 
     # English chunks
@@ -144,6 +150,7 @@ def chunk_article(
         max_chunk_tokens=max_chunk_tokens,
         overlap_tokens=overlap_tokens,
         source_key=source_key,
+        title=title,
     )
     chunks.extend(en_chunks)
 
@@ -155,6 +162,7 @@ def chunk_article(
         max_chunk_tokens=max_chunk_tokens,
         overlap_tokens=overlap_tokens,
         source_key=source_key,
+        title=title,
     )
     chunks.extend(vn_chunks)
 

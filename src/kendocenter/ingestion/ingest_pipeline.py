@@ -139,8 +139,14 @@ def run_ingestion(
                 vietnamese_paragraphs=len(article.vietnamese_paragraphs),
             )
 
-            # Chunk article with source_key
-            article_chunks = chunk_article(article, source_key=source_key)
+            # Chunk article with source_key and configurable params
+            article_chunks = chunk_article(
+                article,
+                max_chunk_tokens=settings.chunking_max_tokens,
+                overlap_tokens=settings.chunking_overlap_tokens,
+                source_key=source_key,
+                prepend_title=settings.chunking_prepend_title,
+            )
             stats["article_chunks"] += len(article_chunks)
             all_chunks.extend(article_chunks)
             print(f"              {len(article_chunks)} chunks")

@@ -63,7 +63,12 @@ def format_context(
         doc_type = result.metadata.get("type", "unknown")
         language = result.metadata.get("language", "en")
         file_path = result.metadata.get("file_path", "")
-        relevance = f"(relevance: {1 - result.distance:.2f})" if result.distance else ""
+        if result.rerank_score is not None:
+            relevance = f"(relevance: {result.rerank_score:.2f})"
+        elif result.distance:
+            relevance = f"(relevance: {1 - result.distance:.2f})"
+        else:
+            relevance = ""
 
         source_ref = f"[{source}]"
         if file_path:
