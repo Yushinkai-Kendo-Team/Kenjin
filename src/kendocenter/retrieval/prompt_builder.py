@@ -65,7 +65,7 @@ def format_context(
         file_path = result.metadata.get("file_path", "")
         if result.rerank_score is not None:
             relevance = f"(relevance: {result.rerank_score:.2f})"
-        elif result.distance:
+        elif result.distance is not None:
             relevance = f"(relevance: {1 - result.distance:.2f})"
         else:
             relevance = ""

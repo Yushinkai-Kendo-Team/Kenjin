@@ -142,13 +142,12 @@ class Retriever:
             where=where,
         )
 
-        # Resolve compact metadata and filter by similarity threshold
         # When re-ranking, use a relaxed threshold so the cross-encoder
         # sees more candidates — it can rescue borderline results that
         # cosine distance would discard.
         threshold = settings.similarity_threshold
         if self.reranker is not None:
-            threshold = min(threshold * 2, 1.4)
+            threshold = settings.reranker_threshold
         resolved = []
         for r in results:
             if r.distance <= threshold:
