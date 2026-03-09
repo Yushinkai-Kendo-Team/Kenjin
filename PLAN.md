@@ -112,15 +112,16 @@ Everything below has been built and tested:
 - [x] **E5/BGE embedding prefix support** — auto-detects model family and prepends instruction prefixes (`query: ` / `passage: `). *Why:* Modern multilingual models (E5, BGE) require these prefixes for optimal asymmetric retrieval. Without them, switching models silently degrades quality. This unblocks the embedding model upgrade in Part B.
 - [x] **Configurable chunking** — `CHUNKING_MAX_TOKENS`, `CHUNKING_OVERLAP_TOKENS`, `CHUNKING_PREPEND_TITLE` as env vars. *Why:* Chunk size directly affects retrieval — too large dilutes relevance, too small loses context. Making these configurable enables A/B testing with the eval framework.
 
-**Part B: Expanded knowledge + hybrid search** [NEXT]
+**Part B: Hybrid search + retrieval improvements** ✓
 
 *Why this before Claude API:* Retrieval quality improvements compound — better retrieval means better answers regardless of which LLM layer is used. Hybrid search is the single highest-impact missing feature: pure vector search misses exact Japanese/romanji term matches that BM25 catches. Claude Code CLI is fully sufficient as the LLM layer for now.
 
-- [ ] Hybrid search: BM25 keyword search + semantic vector search with Reciprocal Rank Fusion (RRF). *Why:* Kendo terminology (romanji like "tsuki", "zanshin") needs exact keyword matching that cosine similarity often misses. BM25+vector fusion is industry standard for terminology-heavy domains.
-- [ ] Upgrade embedding model: swap `all-MiniLM-L6-v2` to `bge-m3` or `gte-multilingual-base` + re-ingest. *Why:* Current model is English-only (384 dims, MTEB ~56). Vietnamese content is embedded poorly. Modern multilingual models (MTEB ~63+) support EN+VN natively.
-- [ ] Better glossary matching: fuzzy matching, romaji/kanji normalization. *Why:* Current `_extract_term()` only handles "What is X?" patterns — misses "What does X mean?", misspellings, kanji-only queries.
-- [ ] Source quality weighting: glossary > articles > blogs in ranking. *Why:* Not all sources are equal — glossary definitions are authoritative, articles are curated, blogs are supplementary. Weighting prevents blog noise from outranking glossary entries.
-- [ ] Expanded DB schema: techniques, waza categories, sensei profiles. *Why:* Structured data enables filtered retrieval ("show me all nuki-waza") that pure text search can't do well.
+- [x] **Hybrid search** — SQLite FTS5 for BM25 keyword search + ChromaDB vector search, merged via Reciprocal Rank Fusion (`hybrid.py`). Toggle via `HYBRID_ENABLED` env var. *Why:* Kendo terminology (romanji like "tsuki", "zanshin") needs exact keyword matching that cosine similarity often misses. Result: with reranker, Recall@3 +11.3%, MRR +8.6%.
+- [x] **Fuzzy glossary matching** — rapidfuzz-based fuzzy matching with romaji normalization (strip macrons, hyphens, case). Kanji matching for CJK queries. Toggle via `FUZZY_ENABLED` env var. *Why:* Exact matching misses spelling variants and kanji queries. Result: Glossary Hit Rate +8.3%.
+- [x] **Source quality weighting** — configurable per-category weights applied during RRF fusion (glossary=1.5, articles=1.2, blogs=1.0). *Why:* Glossary definitions are authoritative; weighting prevents blog noise from outranking them.
+- [x] **Embedding model upgrade support** — bge-m3 prefix detection (no prefix for dense retrieval), dimension validation in vector_store. `EMBEDDING_MODEL=BAAI/bge-m3` in .env + re-ingest. *Why:* all-MiniLM-L6-v2 is English-only; bge-m3 supports EN+VN natively.
+- [x] **chunk_id fix** — vector_store now returns actual ChromaDB document IDs instead of empty strings for non-glossary chunks. *Why:* Required for hybrid search RRF to join vector and keyword results.
+- [ ] Expanded DB schema: techniques, waza categories, sensei profiles — deferred to Phase 3.
 
 **Part C: Claude API integration**
 

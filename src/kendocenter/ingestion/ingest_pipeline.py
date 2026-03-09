@@ -58,14 +58,14 @@ def run_ingestion(
         db.reset()
 
     # Step 1: Discover sources from metadata.yaml files
-    print("[1/5] Discovering sources from metadata.yaml files...")
+    print("[1/6] Discovering sources from metadata.yaml files...")
     file_sources = discover_sources(theory_dir)
     print(f"       Found {len(file_sources)} source files")
     for src in file_sources:
         print(f"       - [{src.category}] {src.filename}")
 
     # Step 2: Register sources and process files
-    print(f"\n[2/5] Registering sources and parsing files...")
+    print(f"\n[2/6] Registering sources and parsing files...")
     all_chunks: list[DocumentChunk] = []
 
     for file_meta in file_sources:
@@ -169,19 +169,24 @@ def run_ingestion(
     stats["total_chunks"] = len(all_chunks)
 
     # Step 3: Embed all chunks
-    print(f"\n[3/5] Embedding {len(all_chunks)} chunks...")
+    print(f"\n[3/6] Embedding {len(all_chunks)} chunks...")
     embedder = Embedder()
     texts = [c.text for c in all_chunks]
     embeddings = embedder.embed_documents(texts)
     print(f"       Embedding dimension: {len(embeddings[0])}")
 
     # Step 4: Store in ChromaDB
-    print(f"\n[4/5] Storing in vector database...")
+    print(f"\n[4/6] Storing in vector database...")
     vector_store.add_chunks(all_chunks, embeddings)
     print(f"       Total vectors in store: {vector_store.count}")
 
-    # Step 5: Summary
-    print(f"\n[5/5] Verifying...")
+    # Step 5: Build FTS5 keyword index (Phase 2B)
+    print(f"\n[5/6] Building keyword search index...")
+    fts_count = db.populate_fts()
+    print(f"       FTS5 indexed: {fts_count} chunks")
+
+    # Step 6: Summary
+    print(f"\n[6/6] Verifying...")
     print("\n=== Ingestion Complete ===")
     print(f"  Sources registered: {stats['sources_registered']}")
     print(f"  Glossary entries: {stats['glossary_entries']}")

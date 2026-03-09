@@ -77,6 +77,12 @@ class EvalSummary:
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-compatible dict."""
         d = {
+            "config": {
+                "embedding_model": settings.embedding_model,
+                "hybrid_enabled": settings.hybrid_enabled,
+                "reranker_enabled": settings.reranker_enabled,
+                "fuzzy_enabled": settings.fuzzy_enabled,
+            },
             "total_questions": self.total_questions,
             "mean_recall_at_3": round(self.mean_recall_at_3, 4),
             "mean_recall_at_5": round(self.mean_recall_at_5, 4),

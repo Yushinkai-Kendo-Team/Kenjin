@@ -48,6 +48,7 @@ class SearchResult:
     metadata: dict[str, Any]
     distance: float  # lower = more similar
     rerank_score: float | None = None  # cross-encoder score (higher = better)
+    rrf_score: float | None = None  # hybrid RRF fusion score (higher = better)
 
     @property
     def source(self) -> str:

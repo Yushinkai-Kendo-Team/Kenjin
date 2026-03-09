@@ -1,5 +1,6 @@
 """Application configuration."""
 
+import json
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -34,6 +35,17 @@ class Settings(BaseSettings):
     # Evaluation (Phase 2A)
     eval_dataset_path: str = "data/eval/eval_dataset.yaml"
 
+    # Hybrid search (Phase 2B)
+    hybrid_enabled: bool = False
+    hybrid_rrf_k: int = 60  # RRF constant (standard value)
+    hybrid_vector_weight: float = 1.0
+    hybrid_keyword_weight: float = 1.0
+    source_quality_weights: str = '{"glossary": 1.5, "articles": 1.2}'
+
+    # Fuzzy glossary (Phase 2B)
+    fuzzy_enabled: bool = False
+    fuzzy_threshold: float = 70.0  # rapidfuzz score 0-100
+
     # Optional: Claude API (for future use)
     anthropic_api_key: str = ""
 
@@ -50,6 +62,11 @@ class Settings(BaseSettings):
     @property
     def db_path(self) -> Path:
         return Path(self.sqlite_db_path)
+
+    @property
+    def parsed_source_quality_weights(self) -> dict[str, float]:
+        """Parse source_quality_weights JSON string."""
+        return json.loads(self.source_quality_weights)
 
 
 settings = Settings()

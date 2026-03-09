@@ -1,13 +1,19 @@
-"""ChromaDB vector store for kendo knowledge chunks."""
+"""ChromaDB vector store for kendo knowledge chunks.
+
+Phase 2B: Dimension validation for embedding model upgrades.
+"""
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import chromadb
 
 from kendocenter.config import settings
 from kendocenter.storage.models import DocumentChunk, SearchResult
+
+logger = logging.getLogger(__name__)
 
 
 COLLECTION_NAME = "kendo_knowledge"
@@ -87,14 +93,15 @@ class VectorStore:
 
         search_results = []
         if results["documents"] and results["documents"][0]:
-            for doc, meta, dist in zip(
+            for doc_id, doc, meta, dist in zip(
+                results["ids"][0],
                 results["documents"][0],
                 results["metadatas"][0],
                 results["distances"][0],
             ):
                 search_results.append(
                     SearchResult(
-                        chunk_id=meta.get("term", ""),
+                        chunk_id=doc_id,
                         text=doc,
                         metadata=meta,
                         distance=dist,
@@ -107,6 +114,34 @@ class VectorStore:
     def count(self) -> int:
         """Number of chunks in the collection."""
         return self.collection.count()
+
+    def validate_dimension(self, expected_dim: int) -> bool:
+        """Check if existing vectors match the expected dimension.
+
+        Returns True if OK (empty collection or matching dimension).
+        Logs a warning and returns False on mismatch.
+        """
+        if self.count == 0:
+            return True
+        # Peek at one vector to check dimension
+        sample = self.collection.peek(limit=1)
+        if not sample.get("ids"):
+            return True
+        # Re-query with embeddings to check dimension
+        sample = self.collection.get(
+            ids=sample["ids"][:1], include=["embeddings"]
+        )
+        if sample["embeddings"] and sample["embeddings"][0]:
+            actual_dim = len(sample["embeddings"][0])
+            if actual_dim != expected_dim:
+                logger.warning(
+                    "Embedding dimension mismatch: collection has %dd vectors "
+                    "but current model produces %dd. Run ingest_all.py --reset "
+                    "to rebuild with the new model.",
+                    actual_dim, expected_dim,
+                )
+                return False
+        return True
 
     def reset(self) -> None:
         """Delete and recreate the collection."""

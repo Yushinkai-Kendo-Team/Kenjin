@@ -12,10 +12,12 @@ from kendocenter.config import settings
 
 # Model families that require query/passage instruction prefixes.
 # Detected automatically from model name — no extra config needed.
-_PREFIX_MODELS: dict[str, dict[str, str]] = {
-    "e5": {"query": "query: ", "passage": "passage: "},
-    "bge": {"query": "Represent this sentence: ", "passage": ""},
-}
+# Order matters: more specific keys are checked first.
+_PREFIX_MODELS: list[tuple[str, dict[str, str]]] = [
+    ("bge-m3", {"query": "", "passage": ""}),  # bge-m3 needs no prefix for dense
+    ("e5", {"query": "query: ", "passage": "passage: "}),
+    ("bge", {"query": "Represent this sentence: ", "passage": ""}),
+]
 
 
 class Embedder:
@@ -33,7 +35,7 @@ class Embedder:
     def _detect_prefixes(model_name: str) -> dict[str, str]:
         """Detect if model requires query/passage prefixes based on name."""
         name_lower = model_name.lower()
-        for family, prefixes in _PREFIX_MODELS.items():
+        for family, prefixes in _PREFIX_MODELS:
             if family in name_lower:
                 return prefixes
         return {"query": "", "passage": ""}

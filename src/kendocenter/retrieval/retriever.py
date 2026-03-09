@@ -4,10 +4,12 @@ Phase 1.5: Resolves compact source_key metadata back to full source info
 via a cached lookup from the sources table.
 
 Phase 2A: Optional cross-encoder re-ranking for two-stage retrieval.
+Phase 2B: Hybrid search (BM25 + vector), fuzzy glossary matching.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
@@ -17,6 +19,9 @@ from kendocenter.storage.vector_store import VectorStore
 from kendocenter.storage.database import Database
 from kendocenter.storage.models import SearchResult
 from kendocenter.retrieval.reranker import Reranker
+from kendocenter.retrieval.hybrid import HybridSearcher
+
+logger = logging.getLogger(__name__)
 
 _QUESTION_PREFIXES = re.compile(
     r"^(?:what\s+is|define|explain|tell\s+me\s+about|"
@@ -46,6 +51,7 @@ class Retriever:
         self.reranker = reranker
         if self.reranker is None and settings.reranker_enabled:
             self.reranker = Reranker()
+        self._hybrid: HybridSearcher | None = None
 
     @property
     def source_cache(self) -> dict[str, dict]:
@@ -93,9 +99,9 @@ class Retriever:
         return None
 
     def lookup_term(self, query: str) -> dict | None:
-        """Try exact glossary match in SQLite.
+        """Try glossary match in SQLite.
 
-        First tries the raw query, then extracts potential terms from questions.
+        Chain: raw exact → extracted exact → fuzzy (Phase 2B).
         """
         result = self.database.lookup_term(query)
         if result:
@@ -103,7 +109,16 @@ class Retriever:
 
         extracted = self._extract_term(query)
         if extracted:
-            return self.database.lookup_term(extracted)
+            result = self.database.lookup_term(extracted)
+            if result:
+                return result
+
+        # Fuzzy fallback (Phase 2B)
+        if settings.fuzzy_enabled:
+            term_to_match = extracted or query
+            return self.database.fuzzy_lookup_term(
+                term_to_match, threshold=settings.fuzzy_threshold
+            )
 
         return None
 
@@ -113,7 +128,10 @@ class Retriever:
         n_results: int | None = None,
         language: str | None = None,
     ) -> list[SearchResult]:
-        """Semantic search in ChromaDB.
+        """Search for relevant chunks.
+
+        Uses hybrid search (BM25 + vector) when enabled, otherwise pure vector.
+        Results are optionally re-ranked by cross-encoder.
 
         Args:
             query: The search query text.
@@ -125,11 +143,38 @@ class Retriever:
         """
         n_results = n_results or settings.retrieval_top_k
 
-        # Two-stage retrieval: fetch more candidates when re-ranking is enabled
+        # Candidate pool size: larger when re-ranking or hybrid
         fetch_k = n_results
         if self.reranker is not None:
             fetch_k = max(n_results, settings.reranker_candidate_count)
 
+        # Hybrid search (Phase 2B): BM25 + vector merged via RRF
+        if settings.hybrid_enabled:
+            resolved = self._hybrid_search(query, fetch_k, language)
+        else:
+            resolved = self._vector_search(query, fetch_k, language)
+
+        # Resolve metadata for all results
+        for r in resolved:
+            if "source" not in r.metadata:
+                r.metadata = self._resolve_metadata(r.metadata)
+
+        # Re-rank if enabled (graceful fallback on failure)
+        if self.reranker is not None and resolved:
+            try:
+                resolved = self.reranker.rerank(query, resolved, top_n=n_results)
+            except Exception as e:
+                logger.warning("Re-ranking failed, using search order: %s", e)
+
+        return resolved[:n_results]
+
+    def _vector_search(
+        self,
+        query: str,
+        fetch_k: int,
+        language: str | None,
+    ) -> list[SearchResult]:
+        """Pure vector search in ChromaDB with threshold filtering."""
         query_embedding = self.embedder.embed_query(query)
 
         where = None
@@ -143,26 +188,30 @@ class Retriever:
         )
 
         # When re-ranking, use a relaxed threshold so the cross-encoder
-        # sees more candidates — it can rescue borderline results that
-        # cosine distance would discard.
+        # sees more candidates.
         threshold = settings.similarity_threshold
         if self.reranker is not None:
             threshold = settings.reranker_threshold
-        resolved = []
-        for r in results:
-            if r.distance <= threshold:
-                r.metadata = self._resolve_metadata(r.metadata)
-                resolved.append(r)
 
-        # Re-rank if enabled (graceful fallback on failure)
-        if self.reranker is not None and resolved:
-            try:
-                resolved = self.reranker.rerank(query, resolved, top_n=n_results)
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning("Re-ranking failed, using vector search order: %s", e)
+        return [r for r in results if r.distance <= threshold]
 
-        return resolved[:n_results]
+    def _hybrid_search(
+        self,
+        query: str,
+        fetch_k: int,
+        language: str | None,
+    ) -> list[SearchResult]:
+        """Hybrid search: BM25 keyword + vector, merged via RRF."""
+        if self._hybrid is None:
+            self._hybrid = HybridSearcher(
+                embedder=self.embedder,
+                vector_store=self.vector_store,
+                database=self.database,
+                source_cache=self.source_cache,
+            )
+        return self._hybrid.search(
+            query, n_results=fetch_k, language=language, fetch_k=fetch_k,
+        )
 
     def retrieve(
         self,
