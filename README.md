@@ -129,7 +129,8 @@ Python 3.12 / FastAPI / Streamlit / ChromaDB / SQLite / sentence-transformers / 
 - **Phase 1** (COMPLETE): Knowledge base + RAG pipeline + Streamlit UI + FastAPI + Claude Code CLI
 - **Phase 1.5** (COMPLETE): Source restructuring, metadata.yaml, source registry, blog scrapers (5 sources)
 - **Phase 2A** (COMPLETE): Evaluation framework, cross-encoder re-ranking, embedding model upgrade support, chunking tuning
-- **Phase 2B/C** (NEXT): Claude API integration, hybrid search, fuzzy matching
+- **Phase 2B** (NEXT): Hybrid search (BM25+vector), multilingual embedding upgrade, fuzzy glossary matching
+- **Phase 2C**: Claude API integration, streaming UI, conversation memory
 - **Phase 3**: Yushinkai team intelligence (Facebook data, team events) + YouTube video catalog (metadata search)
 - **Phase 4**: Japanese kendo terminology engine (JP-EN mapping, pronunciation data, Whisper prep)
 - **Phase 5**: Kendo video processing (transcription, kendo-aware translation, subtitles)
