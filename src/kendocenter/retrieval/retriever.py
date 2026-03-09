@@ -24,8 +24,13 @@ from kendocenter.retrieval.hybrid import HybridSearcher
 logger = logging.getLogger(__name__)
 
 _QUESTION_PREFIXES = re.compile(
-    r"^(?:what\s+is|define|explain|tell\s+me\s+about|"
-    r"what\s+does|what\s+are|meaning\s+of)\s+",
+    # Longer patterns first to avoid partial matches (e.g. "what is the meaning of"
+    # must match before "what is").
+    r"^(?:what\s+is\s+the\s+meaning\s+of|what\s+is\s+the|"
+    r"can\s+you\s+explain|tell\s+me\s+about|how\s+do\s+you|"
+    r"what\s+does|what\s+are|what\s+is|who\s+is|how\s+is|"
+    r"meaning\s+of|what\s+about|how\s+to|"
+    r"define|explain|describe)\s+",
     re.IGNORECASE,
 )
 

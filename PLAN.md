@@ -28,7 +28,7 @@ The core philosophy: **accuracy over breadth**. Better to answer 100 kendo quest
 | Language | Python 3.12 | Best AI/ML ecosystem |
 | Backend | FastAPI | Async, auto-docs, good for APIs |
 | LLM | Claude Code (Phase 1), Claude API (future) | Handles Japanese/English well |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) | Free, local, no API cost |
+| Embeddings | sentence-transformers (BAAI/bge-m3, 1024d) | Free, local, multilingual (EN+VN+JP) |
 | Vector DB | ChromaDB | Zero config, pip install |
 | Structured DB | SQLite | Zero config, file-based |
 | Doc Parsing | pdfplumber (PDF), python-docx (DOCX) | Reliable extraction |
@@ -122,6 +122,27 @@ Everything below has been built and tested:
 - [x] **Embedding model upgrade support** — bge-m3 prefix detection (no prefix for dense retrieval), dimension validation in vector_store. `EMBEDDING_MODEL=BAAI/bge-m3` in .env + re-ingest. *Why:* all-MiniLM-L6-v2 is English-only; bge-m3 supports EN+VN natively.
 - [x] **chunk_id fix** — vector_store now returns actual ChromaDB document IDs instead of empty strings for non-glossary chunks. *Why:* Required for hybrid search RRF to join vector and keyword results.
 - [ ] Expanded DB schema: techniques, waza categories, sensei profiles — deferred to Phase 3.
+
+**Phase 2B evaluation results (bge-m3 + hybrid + reranker + fuzzy, n=50 questions):**
+
+| Metric | Phase 1 Baseline | Phase 2B | Change |
+|--------|-----------------|----------|--------|
+| Recall@3 | 0.580 | 0.689 | +10.9pp |
+| Recall@5 | 0.696 | 0.756 | +6.0pp |
+| Recall@8 | 0.727 | 0.775 | +4.8pp |
+| MRR | 0.677 | 0.753 | +7.6pp |
+| Glossary Hit Rate | 0.375 | 0.458 | +8.3pp |
+| Keyword Recall | 0.855 | 0.908 | +5.3pp |
+
+*What improved:* Precision at top ranks (Recall@3, MRR) benefited most from the bge-m3 multilingual embeddings combined with cross-encoder reranking. Hybrid search (BM25 + vector) catches exact romanji term matches that pure vector search misses. Fuzzy matching helps with spelling variants.
+
+*What's still weak:*
+- Cross-source retrieval (Recall@3=0.379) — queries needing results from multiple source types remain the hardest category. This likely needs better chunking or query decomposition, not more retrieval features.
+- Glossary Hit Rate at 0.458 means fuzzy matching only catches about half of glossary queries — the other half rely on vector search alone.
+- bge-m3 is significantly slower on CPU (~270ms/query vs ~50ms for MiniLM; first query ~16s for model load). GPU acceleration recommended for production.
+- Eval set is 50 questions — results are directional, not statistically conclusive. Some categories have only 5 samples.
+
+*Saved baselines:* `data/eval/baseline-minilm.json`, `data/eval/reranker-minilm.json`, `data/eval/baseline-2b.json`, `data/eval/bge-m3-all-features.json`
 
 **Part C: Claude API integration**
 
@@ -219,7 +240,7 @@ Everything below has been built and tested:
 
 3. **Kendo-aware chunking:** Glossary terms are atomic units (never split). Articles split by paragraphs (~800 tokens, 100 token overlap) respecting section boundaries.
 
-4. **Embedding model:** Started with all-MiniLM-L6-v2 (fast, English-focused). Can upgrade to multilingual-e5-large for better Japanese support.
+4. **Embedding model:** Upgraded from all-MiniLM-L6-v2 (384d, English-only) to BAAI/bge-m3 (1024d, 100+ languages). Supports EN, VN, and JP natively. Slower on CPU but significantly better retrieval quality (+10.9pp Recall@3).
 
 5. **Character-level PDF extraction:** The Glossary.pdf is LaTeX-generated with two columns and concatenated words. Standard text extraction fails. Solution: character-level extraction with gap analysis (>2px gap = space), column split at x=305.
 
