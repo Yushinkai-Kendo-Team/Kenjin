@@ -103,25 +103,33 @@ Everything below has been built and tested:
 
 **Goal:** Make the retrieval pipeline significantly more accurate and integrate direct LLM generation.
 
-**Part A: Retrieval quality**
-- [ ] Upgrade embedding model: evaluate `multilingual-e5-large` or `bge-m3` for better Japanese term handling
-- [ ] Implement re-ranking: retrieve top-K candidates, then re-rank with a cross-encoder for precision
-- [ ] Improve chunking strategy: experiment with semantic chunking (split by topic, not fixed token count)
-- [ ] Add chunk overlap tuning and evaluate impact on retrieval accuracy
-- [ ] Build evaluation dataset: 50+ question/answer pairs with expected source documents
-- [ ] Automated RAG evaluation pipeline: measure recall@k, precision, and answer relevance
+**Part A: Retrieval quality** ✓
 
-**Part B: Claude API integration**
+*Why these changes:* Phase 1 had no way to measure retrieval accuracy — we couldn't tell if changes helped or hurt. The embedding model (all-MiniLM-L6-v2) is English-only, which degrades Vietnamese content retrieval. Vector search alone ranks by cosine distance, which is a rough approximation — a cross-encoder re-ranker reads query+passage together for much better relevance judgment. Chunking parameters were hardcoded, making experimentation impossible.
+
+- [x] **Evaluation framework first** — built before making any changes, so every optimization is measured. 50 Q&A pairs across 6 categories (glossary, semantic, cross-source, multilingual, negative). Metrics: Recall@k, MRR, Glossary Hit Rate, Keyword Recall. *Why:* You can't improve what you can't measure. Baseline: Recall@8=0.727, MRR=0.677.
+- [x] **Cross-encoder re-ranking** — two-stage retrieval: vector search fetches 20 candidates, cross-encoder (`ms-marco-MiniLM-L-6-v2`) re-ranks to top 8. Relaxed similarity threshold when re-ranking to avoid discarding borderline candidates before the cross-encoder sees them. *Why:* Cosine similarity is a weak proxy for relevance. Cross-encoders read query and passage together, catching semantic matches that embedding distance misses. Result: MRR +5.5%, Recall@3 +5.3%.
+- [x] **E5/BGE embedding prefix support** — auto-detects model family and prepends instruction prefixes (`query: ` / `passage: `). *Why:* Modern multilingual models (E5, BGE) require these prefixes for optimal asymmetric retrieval. Without them, switching models silently degrades quality. This unblocks the embedding model upgrade in Part B.
+- [x] **Configurable chunking** — `CHUNKING_MAX_TOKENS`, `CHUNKING_OVERLAP_TOKENS`, `CHUNKING_PREPEND_TITLE` as env vars. *Why:* Chunk size directly affects retrieval — too large dilutes relevance, too small loses context. Making these configurable enables A/B testing with the eval framework.
+
+**Part B: Expanded knowledge + hybrid search** [NEXT]
+
+*Why this before Claude API:* Retrieval quality improvements compound — better retrieval means better answers regardless of which LLM layer is used. Hybrid search is the single highest-impact missing feature: pure vector search misses exact Japanese/romanji term matches that BM25 catches. Claude Code CLI is fully sufficient as the LLM layer for now.
+
+- [ ] Hybrid search: BM25 keyword search + semantic vector search with Reciprocal Rank Fusion (RRF). *Why:* Kendo terminology (romanji like "tsuki", "zanshin") needs exact keyword matching that cosine similarity often misses. BM25+vector fusion is industry standard for terminology-heavy domains.
+- [ ] Upgrade embedding model: swap `all-MiniLM-L6-v2` to `bge-m3` or `gte-multilingual-base` + re-ingest. *Why:* Current model is English-only (384 dims, MTEB ~56). Vietnamese content is embedded poorly. Modern multilingual models (MTEB ~63+) support EN+VN natively.
+- [ ] Better glossary matching: fuzzy matching, romaji/kanji normalization. *Why:* Current `_extract_term()` only handles "What is X?" patterns — misses "What does X mean?", misspellings, kanji-only queries.
+- [ ] Source quality weighting: glossary > articles > blogs in ranking. *Why:* Not all sources are equal — glossary definitions are authoritative, articles are curated, blogs are supplementary. Weighting prevents blog noise from outranking glossary entries.
+- [ ] Expanded DB schema: techniques, waza categories, sensei profiles. *Why:* Structured data enables filtered retrieval ("show me all nuki-waza") that pure text search can't do well.
+
+**Part C: Claude API integration**
+
+*Why deferred:* Claude Code CLI works well for the current single-user workflow. API integration adds complexity (key management, rate limits, cost) without improving retrieval quality. Worth adding when the UI needs streaming responses or multi-turn conversations.
+
 - [ ] Add ANTHROPIC_API_KEY support — generate answers directly in the pipeline
 - [ ] Streaming responses in Streamlit UI
 - [ ] Conversation memory (multi-turn follow-up questions)
 - [ ] Answer quality scoring: compare RAG-augmented vs. standalone Claude answers
-
-**Part C: Expanded knowledge + hybrid search**
-- [ ] Expanded DB schema: techniques, waza categories, sensei profiles
-- [ ] Hybrid search: BM25 keyword search + semantic vector search (weighted fusion)
-- [ ] Better glossary matching: fuzzy matching, romaji/kanji normalization
-- [ ] Source quality weighting: glossary > articles > blogs in ranking
 
 ### Phase 3 - Yushinkai Team Intelligence + YouTube Catalog
 

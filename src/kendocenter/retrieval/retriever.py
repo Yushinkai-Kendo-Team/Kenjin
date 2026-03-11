@@ -2,6 +2,8 @@
 
 Phase 1.5: Resolves compact source_key metadata back to full source info
 via a cached lookup from the sources table.
+
+Phase 2A: Optional cross-encoder re-ranking for two-stage retrieval.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from kendocenter.ingestion.embedder import Embedder
 from kendocenter.storage.vector_store import VectorStore
 from kendocenter.storage.database import Database
 from kendocenter.storage.models import SearchResult
+from kendocenter.retrieval.reranker import Reranker
 
 _QUESTION_PREFIXES = re.compile(
     r"^(?:what\s+is|define|explain|tell\s+me\s+about|"
@@ -34,11 +37,15 @@ class Retriever:
         embedder: Embedder | None = None,
         vector_store: VectorStore | None = None,
         database: Database | None = None,
+        reranker: Reranker | None = None,
     ):
         self.embedder = embedder or Embedder()
         self.vector_store = vector_store or VectorStore()
         self.database = database or Database()
         self._source_cache: dict[str, dict] | None = None
+        self.reranker = reranker
+        if self.reranker is None and settings.reranker_enabled:
+            self.reranker = Reranker()
 
     @property
     def source_cache(self) -> dict[str, dict]:
@@ -117,6 +124,12 @@ class Retriever:
             Ranked list of SearchResult with resolved metadata.
         """
         n_results = n_results or settings.retrieval_top_k
+
+        # Two-stage retrieval: fetch more candidates when re-ranking is enabled
+        fetch_k = n_results
+        if self.reranker is not None:
+            fetch_k = max(n_results, settings.reranker_candidate_count)
+
         query_embedding = self.embedder.embed_query(query)
 
         where = None
@@ -125,19 +138,31 @@ class Retriever:
 
         results = self.vector_store.search(
             query_embedding=query_embedding,
-            n_results=n_results,
+            n_results=fetch_k,
             where=where,
         )
 
-        # Resolve compact metadata and filter by similarity threshold
+        # When re-ranking, use a relaxed threshold so the cross-encoder
+        # sees more candidates — it can rescue borderline results that
+        # cosine distance would discard.
         threshold = settings.similarity_threshold
+        if self.reranker is not None:
+            threshold = settings.reranker_threshold
         resolved = []
         for r in results:
             if r.distance <= threshold:
                 r.metadata = self._resolve_metadata(r.metadata)
                 resolved.append(r)
 
-        return resolved
+        # Re-rank if enabled (graceful fallback on failure)
+        if self.reranker is not None and resolved:
+            try:
+                resolved = self.reranker.rerank(query, resolved, top_n=n_results)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Re-ranking failed, using vector search order: %s", e)
+
+        return resolved[:n_results]
 
     def retrieve(
         self,

@@ -115,6 +115,8 @@ New blog sources can be added by creating a `urls.yaml` + scraper config. See [A
 | `scripts/query_cli.py` | Test queries. `--interactive` for REPL, `--prompt` for full prompt. |
 | `scripts/verify_pipeline.py` | Verify database + vector store + retrieval (7 checks). |
 | `scripts/verify_api.py` | Start server, run 9 API checks, stop server. |
+| `scripts/run_eval.py` | RAG evaluation: recall@k, MRR, keyword recall. `--verbose` for detail. |
+| `scripts/compare_models.py` | Compare two eval result JSON files side-by-side. |
 | `scripts/scraping/scrape_*.py` | Per-site blog scrapers. `--dry-run` to preview. |
 | `scripts/stop_servers.py` | Kill running uvicorn/streamlit processes. |
 
@@ -126,7 +128,9 @@ Python 3.12 / FastAPI / Streamlit / ChromaDB / SQLite / sentence-transformers / 
 
 - **Phase 1** (COMPLETE): Knowledge base + RAG pipeline + Streamlit UI + FastAPI + Claude Code CLI
 - **Phase 1.5** (COMPLETE): Source restructuring, metadata.yaml, source registry, blog scrapers (5 sources)
-- **Phase 2** (NEXT): RAG optimization (re-ranking, better embeddings, evaluation), Claude API integration
+- **Phase 2A** (COMPLETE): Evaluation framework, cross-encoder re-ranking, embedding model upgrade support, chunking tuning
+- **Phase 2B** (NEXT): Hybrid search (BM25+vector), multilingual embedding upgrade, fuzzy glossary matching
+- **Phase 2C**: Claude API integration, streaming UI, conversation memory
 - **Phase 3**: Yushinkai team intelligence (Facebook data, team events) + YouTube video catalog (metadata search)
 - **Phase 4**: Japanese kendo terminology engine (JP-EN mapping, pronunciation data, Whisper prep)
 - **Phase 5**: Kendo video processing (transcription, kendo-aware translation, subtitles)
