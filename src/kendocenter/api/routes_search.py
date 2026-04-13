@@ -57,6 +57,7 @@ def search_kendo(request: SearchRequest) -> SearchResponse:
                 "metadata": r.metadata,
                 "distance": r.distance,
                 **({"rerank_score": r.rerank_score} if r.rerank_score is not None else {}),
+                **({"rrf_score": r.rrf_score} if r.rrf_score is not None else {}),
             }
             for r in result.results
         ],

@@ -28,7 +28,7 @@ The core philosophy: **accuracy over breadth**. Better to answer 100 kendo quest
 | Language | Python 3.12 | Best AI/ML ecosystem |
 | Backend | FastAPI | Async, auto-docs, good for APIs |
 | LLM | Claude Code (Phase 1), Claude API (future) | Handles Japanese/English well |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) | Free, local, no API cost |
+| Embeddings | sentence-transformers (BAAI/bge-m3, 1024d) | Free, local, multilingual (EN+VN+JP) |
 | Vector DB | ChromaDB | Zero config, pip install |
 | Structured DB | SQLite | Zero config, file-based |
 | Doc Parsing | pdfplumber (PDF), python-docx (DOCX) | Reliable extraction |
@@ -112,15 +112,71 @@ Everything below has been built and tested:
 - [x] **E5/BGE embedding prefix support** — auto-detects model family and prepends instruction prefixes (`query: ` / `passage: `). *Why:* Modern multilingual models (E5, BGE) require these prefixes for optimal asymmetric retrieval. Without them, switching models silently degrades quality. This unblocks the embedding model upgrade in Part B.
 - [x] **Configurable chunking** — `CHUNKING_MAX_TOKENS`, `CHUNKING_OVERLAP_TOKENS`, `CHUNKING_PREPEND_TITLE` as env vars. *Why:* Chunk size directly affects retrieval — too large dilutes relevance, too small loses context. Making these configurable enables A/B testing with the eval framework.
 
-**Part B: Expanded knowledge + hybrid search** [NEXT]
+**Part B: Hybrid search + retrieval improvements** ✓
 
 *Why this before Claude API:* Retrieval quality improvements compound — better retrieval means better answers regardless of which LLM layer is used. Hybrid search is the single highest-impact missing feature: pure vector search misses exact Japanese/romanji term matches that BM25 catches. Claude Code CLI is fully sufficient as the LLM layer for now.
 
-- [ ] Hybrid search: BM25 keyword search + semantic vector search with Reciprocal Rank Fusion (RRF). *Why:* Kendo terminology (romanji like "tsuki", "zanshin") needs exact keyword matching that cosine similarity often misses. BM25+vector fusion is industry standard for terminology-heavy domains.
-- [ ] Upgrade embedding model: swap `all-MiniLM-L6-v2` to `bge-m3` or `gte-multilingual-base` + re-ingest. *Why:* Current model is English-only (384 dims, MTEB ~56). Vietnamese content is embedded poorly. Modern multilingual models (MTEB ~63+) support EN+VN natively.
-- [ ] Better glossary matching: fuzzy matching, romaji/kanji normalization. *Why:* Current `_extract_term()` only handles "What is X?" patterns — misses "What does X mean?", misspellings, kanji-only queries.
-- [ ] Source quality weighting: glossary > articles > blogs in ranking. *Why:* Not all sources are equal — glossary definitions are authoritative, articles are curated, blogs are supplementary. Weighting prevents blog noise from outranking glossary entries.
-- [ ] Expanded DB schema: techniques, waza categories, sensei profiles. *Why:* Structured data enables filtered retrieval ("show me all nuki-waza") that pure text search can't do well.
+- [x] **Hybrid search** — SQLite FTS5 for BM25 keyword search + ChromaDB vector search, merged via Reciprocal Rank Fusion (`hybrid.py`). Toggle via `HYBRID_ENABLED` env var. *Why:* Kendo terminology (romanji like "tsuki", "zanshin") needs exact keyword matching that cosine similarity often misses. Result: with reranker, Recall@3 +11.3%, MRR +8.6%.
+- [x] **Fuzzy glossary matching** — rapidfuzz-based fuzzy matching with romaji normalization (strip macrons, hyphens, case). Kanji matching for CJK queries. Toggle via `FUZZY_ENABLED` env var. *Why:* Exact matching misses spelling variants and kanji queries. Result: Glossary Hit Rate +8.3%.
+- [x] **Source quality weighting** — configurable per-category weights applied during RRF fusion (glossary=1.5, articles=1.2, blogs=1.0). *Why:* Glossary definitions are authoritative; weighting prevents blog noise from outranking them.
+- [x] **Embedding model upgrade support** — bge-m3 prefix detection (no prefix for dense retrieval), dimension validation in vector_store. `EMBEDDING_MODEL=BAAI/bge-m3` in .env + re-ingest. *Why:* all-MiniLM-L6-v2 is English-only; bge-m3 supports EN+VN natively.
+- [x] **chunk_id fix** — vector_store now returns actual ChromaDB document IDs instead of empty strings for non-glossary chunks. *Why:* Required for hybrid search RRF to join vector and keyword results.
+- [ ] Expanded DB schema: techniques, waza categories, sensei profiles — deferred to Phase 3.
+
+**Phase 2B evaluation results (bge-m3 + hybrid + reranker + fuzzy, n=50 questions):**
+
+| Metric | Phase 1 Baseline | Phase 2B | Change |
+|--------|-----------------|----------|--------|
+| Recall@3 | 0.580 | 0.689 | +10.9pp |
+| Recall@5 | 0.696 | 0.756 | +6.0pp |
+| Recall@8 | 0.727 | 0.775 | +4.8pp |
+| MRR | 0.677 | 0.753 | +7.6pp |
+| Glossary Hit Rate | 0.375 | 0.458 | +8.3pp |
+| Keyword Recall | 0.855 | 0.908 | +5.3pp |
+
+*What improved:* Precision at top ranks (Recall@3, MRR) benefited most from the bge-m3 multilingual embeddings combined with cross-encoder reranking. Hybrid search (BM25 + vector) catches exact romanji term matches that pure vector search misses. Fuzzy matching helps with spelling variants.
+
+*What's still weak:*
+- Glossary Hit Rate at 0.458 means fuzzy matching only catches about half of glossary queries — the other half rely on vector search alone.
+- bge-m3 is significantly slower on CPU (~270ms/query vs ~50ms for MiniLM; first query ~16s for model load). GPU acceleration recommended for production.
+- Eval set is 50 questions — results are directional, not statistically conclusive. Some categories have only 5 samples.
+
+*Saved baselines:* `data/eval/baseline-minilm.json`, `data/eval/reranker-minilm.json`, `data/eval/baseline-2b.json`, `data/eval/bge-m3-all-features.json`
+
+**Part B+ (optimization): Source dedup + title prepend** ✓
+
+*Why:* Cross-source retrieval (Recall@3=0.379) was the weakest category. Two root causes identified via per-question analysis: (1) duplicate source keys dominating top-k (e.g., 4 glossary chunks for "seme"), and (2) chunks lacking topic context without their article title.
+
+- [x] **Source-key deduplication** — after reranking, keep only the best-scoring chunk per source_key. This naturally spreads results across different documents without forcing category diversity. Tested strict round-robin category diversity first — it improved cross-source but regressed single-category queries. Source dedup is the right granularity. *Result:* semantic_article Recall@3 +26.7pp, cross-source Recall@3 +4.2pp.
+- [x] **Title prepend in chunks** — enabled `CHUNKING_PREPEND_TITLE=true` (already implemented in Phase 2A, just disabled). Each article chunk now starts with "Title: {article title}". Requires re-ingestion. *Result:* cross-source Recall@3 +18.7pp on top of dedup.
+- [x] **Tested but not kept:** Flattened source quality weights (no effect with reranker+dedup), larger candidate pool of 30 (hurt cross-source by diluting reranker focus).
+
+**Phase 2B+ evaluation results (dedup + title prepend, n=50 questions):**
+
+| Metric | Phase 2B | Phase 2B+ | Change |
+|--------|----------|-----------|--------|
+| Recall@3 | 0.689 | 0.796 | +10.7pp |
+| Recall@5 | 0.756 | 0.815 | +5.9pp |
+| Recall@8 | 0.775 | 0.823 | +4.8pp |
+| MRR | 0.753 | 0.780 | +2.7pp |
+| Keyword Recall | 0.908 | 0.888 | -2.0pp |
+
+**Per-category breakdown (Phase 2B → 2B+):**
+
+| Category | R@3 before | R@3 after | Change |
+|----------|-----------|-----------|--------|
+| cross_source | 0.379 | 0.608 | **+22.9pp** |
+| semantic_article | 0.617 | 0.867 | **+25.0pp** |
+| semantic_blog | 0.825 | 0.925 | +10.0pp |
+| glossary_lookup | 1.000 | 1.000 | 0 |
+| multilingual | 1.000 | 1.000 | 0 |
+
+*Remaining weak spots:*
+- `cross_spirit_training` (R@3=0.000, expects A112) — expected source at position 12 in candidate pool, out of reach for top-8
+- `cross_modern_kendo` (R@3=0.500, expects A121) — A121 not found in top-30 candidates; semantic distance too large
+- Keyword Recall dropped slightly (-2pp) — title prepend adds text that may dilute exact keyword density
+
+*Saved results:* `data/eval/final-optimized.json`, `data/eval/baseline-pre-optimization.json`
 
 **Part C: Claude API integration**
 
@@ -218,7 +274,7 @@ Everything below has been built and tested:
 
 3. **Kendo-aware chunking:** Glossary terms are atomic units (never split). Articles split by paragraphs (~800 tokens, 100 token overlap) respecting section boundaries.
 
-4. **Embedding model:** Started with all-MiniLM-L6-v2 (fast, English-focused). Can upgrade to multilingual-e5-large for better Japanese support.
+4. **Embedding model:** Upgraded from all-MiniLM-L6-v2 (384d, English-only) to BAAI/bge-m3 (1024d, 100+ languages). Supports EN, VN, and JP natively. Slower on CPU but significantly better retrieval quality (+10.9pp Recall@3).
 
 5. **Character-level PDF extraction:** The Glossary.pdf is LaTeX-generated with two columns and concatenated words. Standard text extraction fails. Solution: character-level extraction with gap analysis (>2px gap = space), column split at x=305.
 

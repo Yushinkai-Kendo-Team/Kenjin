@@ -1,14 +1,23 @@
-"""SQLite database for structured kendo data (glossary terms, documents)."""
+"""SQLite database for structured kendo data (glossary terms, documents).
+
+Phase 2B: FTS5 full-text search index for BM25 keyword search,
+fuzzy glossary matching via rapidfuzz.
+"""
 
 from __future__ import annotations
 
 import json
+import logging
+import re
 import sqlite3
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 from kendocenter.config import settings
 from kendocenter.ingestion.pdf_parser import GlossaryEntry
+
+logger = logging.getLogger(__name__)
 
 
 SCHEMA = """
@@ -101,12 +110,14 @@ class Database:
     def reset(self) -> None:
         """Drop all tables and recreate them."""
         self.conn.executescript("""
+            DROP TABLE IF EXISTS chunks_fts;
             DROP TABLE IF EXISTS glossary_terms;
             DROP TABLE IF EXISTS documents;
             DROP TABLE IF EXISTS document_chunks;
             DROP TABLE IF EXISTS sources;
         """)
         self.conn.commit()
+        self._term_cache = None
         self.initialize()
 
     def insert_glossary_entries(self, entries: list[GlossaryEntry]) -> int:
@@ -348,6 +359,151 @@ class Database:
                ORDER BY count DESC"""
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # --- FTS5 full-text search (Phase 2B) ---
+
+    def populate_fts(self) -> int:
+        """Rebuild FTS5 index from document_chunks table.
+
+        Call after ingestion to make keyword search available.
+        Returns the number of indexed rows.
+        """
+        self.conn.execute("DROP TABLE IF EXISTS chunks_fts")
+        self.conn.execute("""
+            CREATE VIRTUAL TABLE chunks_fts USING fts5(
+                chunk_text,
+                source_key UNINDEXED,
+                lang,
+                chroma_id UNINDEXED,
+                tokenize='unicode61 remove_diacritics 2'
+            )
+        """)
+        # Index all document_chunks (articles, blogs)
+        cursor = self.conn.execute("""
+            SELECT dc.chunk_text, dc.chroma_id, dc.language,
+                   json_extract(dc.metadata_json, '$.src') as source_key
+            FROM document_chunks dc
+            WHERE dc.chunk_text != ''
+        """)
+        count = 0
+        for row in cursor:
+            self.conn.execute(
+                "INSERT INTO chunks_fts (chunk_text, source_key, lang, chroma_id) VALUES (?, ?, ?, ?)",
+                (row["chunk_text"], row["source_key"] or "", row["language"], row["chroma_id"] or ""),
+            )
+            count += 1
+        self.conn.commit()
+        logger.info("FTS5 index populated with %d chunks", count)
+        return count
+
+    def keyword_search(
+        self,
+        query: str,
+        n_results: int = 20,
+        language: str | None = None,
+    ) -> list[dict]:
+        """BM25 keyword search using FTS5.
+
+        Returns dicts with keys: chunk_text, source_key, lang, chroma_id, bm25_rank.
+        Lower rank = better match (FTS5 rank is negative, more negative = better).
+        """
+        # Sanitize query for FTS5: remove special chars that break MATCH syntax
+        safe_query = re.sub(r'[^\w\s]', ' ', query, flags=re.UNICODE).strip()
+        if not safe_query:
+            return []
+
+        if language:
+            rows = self.conn.execute(
+                """SELECT chunk_text, source_key, lang, chroma_id, rank as bm25_rank
+                   FROM chunks_fts
+                   WHERE chunks_fts MATCH ? AND lang = ?
+                   ORDER BY rank
+                   LIMIT ?""",
+                (safe_query, language, n_results),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """SELECT chunk_text, source_key, lang, chroma_id, rank as bm25_rank
+                   FROM chunks_fts
+                   WHERE chunks_fts MATCH ?
+                   ORDER BY rank
+                   LIMIT ?""",
+                (safe_query, n_results),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- Fuzzy glossary matching (Phase 2B) ---
+
+    _term_cache: list[tuple[str, int]] | None = None
+
+    @staticmethod
+    def _normalize_romaji(text: str) -> str:
+        """Normalize romaji for fuzzy matching.
+
+        Lowercases, strips macrons (ō→o, ū→u), removes hyphens/spaces.
+        """
+        text = text.lower()
+        # Decompose unicode, strip combining marks (handles ō → o, etc.)
+        text = unicodedata.normalize("NFD", text)
+        text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+        # Strip hyphens and spaces
+        text = text.replace("-", "").replace(" ", "")
+        return text
+
+    def _get_term_cache(self) -> list[tuple[str, int]]:
+        """Lazy-load all glossary terms for fuzzy matching."""
+        if self._term_cache is None:
+            rows = self.conn.execute(
+                "SELECT id, term_romaji FROM glossary_terms"
+            ).fetchall()
+            self._term_cache = [(row["term_romaji"], row["id"]) for row in rows]
+        return self._term_cache
+
+    def fuzzy_lookup_term(self, query: str, threshold: float = 70.0) -> dict | None:
+        """Fuzzy match a query against glossary terms using rapidfuzz.
+
+        Tries normalized romaji first, then kanji matching for CJK queries.
+        Returns the best match above the threshold, or None.
+        """
+        try:
+            from rapidfuzz import fuzz, process
+        except ImportError:
+            logger.warning("rapidfuzz not installed, skipping fuzzy matching")
+            return None
+
+        terms = self._get_term_cache()
+        if not terms:
+            return None
+
+        # Normalize query and all terms for comparison
+        norm_query = self._normalize_romaji(query)
+        choices = {i: self._normalize_romaji(term) for i, (term, _) in enumerate(terms)}
+
+        result = process.extractOne(
+            norm_query,
+            choices,
+            scorer=fuzz.ratio,
+            score_cutoff=threshold,
+        )
+
+        if result:
+            _, score, idx = result
+            _, term_id = terms[idx]
+            row = self.conn.execute(
+                "SELECT * FROM glossary_terms WHERE id = ?", (term_id,)
+            ).fetchone()
+            if row:
+                return dict(row)
+
+        # For CJK queries, try matching against kanji column
+        if any(ord(c) > 0x3000 for c in query):
+            rows = self.conn.execute(
+                "SELECT * FROM glossary_terms WHERE term_kanji = ?", (query,)
+            ).fetchone()
+            if rows:
+                return dict(rows)
+
+        return None
 
     def close(self) -> None:
         """Close the database connection."""
