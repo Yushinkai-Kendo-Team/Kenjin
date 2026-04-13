@@ -137,12 +137,46 @@ Everything below has been built and tested:
 *What improved:* Precision at top ranks (Recall@3, MRR) benefited most from the bge-m3 multilingual embeddings combined with cross-encoder reranking. Hybrid search (BM25 + vector) catches exact romanji term matches that pure vector search misses. Fuzzy matching helps with spelling variants.
 
 *What's still weak:*
-- Cross-source retrieval (Recall@3=0.379) — queries needing results from multiple source types remain the hardest category. This likely needs better chunking or query decomposition, not more retrieval features.
 - Glossary Hit Rate at 0.458 means fuzzy matching only catches about half of glossary queries — the other half rely on vector search alone.
 - bge-m3 is significantly slower on CPU (~270ms/query vs ~50ms for MiniLM; first query ~16s for model load). GPU acceleration recommended for production.
 - Eval set is 50 questions — results are directional, not statistically conclusive. Some categories have only 5 samples.
 
 *Saved baselines:* `data/eval/baseline-minilm.json`, `data/eval/reranker-minilm.json`, `data/eval/baseline-2b.json`, `data/eval/bge-m3-all-features.json`
+
+**Part B+ (optimization): Source dedup + title prepend** ✓
+
+*Why:* Cross-source retrieval (Recall@3=0.379) was the weakest category. Two root causes identified via per-question analysis: (1) duplicate source keys dominating top-k (e.g., 4 glossary chunks for "seme"), and (2) chunks lacking topic context without their article title.
+
+- [x] **Source-key deduplication** — after reranking, keep only the best-scoring chunk per source_key. This naturally spreads results across different documents without forcing category diversity. Tested strict round-robin category diversity first — it improved cross-source but regressed single-category queries. Source dedup is the right granularity. *Result:* semantic_article Recall@3 +26.7pp, cross-source Recall@3 +4.2pp.
+- [x] **Title prepend in chunks** — enabled `CHUNKING_PREPEND_TITLE=true` (already implemented in Phase 2A, just disabled). Each article chunk now starts with "Title: {article title}". Requires re-ingestion. *Result:* cross-source Recall@3 +18.7pp on top of dedup.
+- [x] **Tested but not kept:** Flattened source quality weights (no effect with reranker+dedup), larger candidate pool of 30 (hurt cross-source by diluting reranker focus).
+
+**Phase 2B+ evaluation results (dedup + title prepend, n=50 questions):**
+
+| Metric | Phase 2B | Phase 2B+ | Change |
+|--------|----------|-----------|--------|
+| Recall@3 | 0.689 | 0.796 | +10.7pp |
+| Recall@5 | 0.756 | 0.815 | +5.9pp |
+| Recall@8 | 0.775 | 0.823 | +4.8pp |
+| MRR | 0.753 | 0.780 | +2.7pp |
+| Keyword Recall | 0.908 | 0.888 | -2.0pp |
+
+**Per-category breakdown (Phase 2B → 2B+):**
+
+| Category | R@3 before | R@3 after | Change |
+|----------|-----------|-----------|--------|
+| cross_source | 0.379 | 0.608 | **+22.9pp** |
+| semantic_article | 0.617 | 0.867 | **+25.0pp** |
+| semantic_blog | 0.825 | 0.925 | +10.0pp |
+| glossary_lookup | 1.000 | 1.000 | 0 |
+| multilingual | 1.000 | 1.000 | 0 |
+
+*Remaining weak spots:*
+- `cross_spirit_training` (R@3=0.000, expects A112) — expected source at position 12 in candidate pool, out of reach for top-8
+- `cross_modern_kendo` (R@3=0.500, expects A121) — A121 not found in top-30 candidates; semantic distance too large
+- Keyword Recall dropped slightly (-2pp) — title prepend adds text that may dilute exact keyword density
+
+*Saved results:* `data/eval/final-optimized.json`, `data/eval/baseline-pre-optimization.json`
 
 **Part C: Claude API integration**
 

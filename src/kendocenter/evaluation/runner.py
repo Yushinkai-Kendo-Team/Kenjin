@@ -15,6 +15,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
+import sqlite3
+
 import yaml
 
 from kendocenter.config import settings
@@ -36,6 +38,7 @@ class EvalQuestion:
     category: str
     expected_glossary_term: str | None = None
     expected_source_keys: list[str] = field(default_factory=list)
+    expected_filenames: list[str] = field(default_factory=list)
     expected_keywords: list[str] = field(default_factory=list)
     language: str | None = None
     difficulty: str = "medium"
@@ -96,20 +99,53 @@ class EvalSummary:
         return d
 
 
+def _build_filename_to_key_map() -> dict[str, str]:
+    """Build a filename -> source_key lookup from the database."""
+    db_path = settings.db_path
+    if not db_path.exists():
+        return {}
+    conn = sqlite3.connect(str(db_path))
+    rows = conn.execute("SELECT source_key, filename FROM sources").fetchall()
+    conn.close()
+    return {fn: sk for sk, fn in rows}
+
+
 def load_dataset(path: str | Path | None = None) -> list[EvalQuestion]:
-    """Load evaluation questions from YAML file."""
+    """Load evaluation questions from YAML file.
+
+    Supports both legacy ``expected_source_keys`` and stable
+    ``expected_filenames``. When filenames are present they are resolved
+    to current source keys via the database, making the eval dataset
+    immune to key re-assignment after re-ingestion.
+    """
     path = Path(path or settings.eval_dataset_path)
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
+    fn_map = _build_filename_to_key_map()
+
     questions = []
     for q in data.get("questions", []):
+        filenames = q.get("expected_filenames", [])
+        # Resolve filenames to current source keys
+        if filenames:
+            resolved_keys = []
+            for fn in filenames:
+                key = fn_map.get(fn)
+                if key:
+                    resolved_keys.append(key)
+            source_keys = resolved_keys
+        else:
+            # Fallback to legacy direct keys
+            source_keys = q.get("expected_source_keys", [])
+
         questions.append(EvalQuestion(
             id=q["id"],
             question=q["question"],
             category=q["category"],
             expected_glossary_term=q.get("expected_glossary_term"),
-            expected_source_keys=q.get("expected_source_keys", []),
+            expected_source_keys=source_keys,
+            expected_filenames=filenames,
             expected_keywords=q.get("expected_keywords", []),
             language=q.get("language"),
             difficulty=q.get("difficulty", "medium"),

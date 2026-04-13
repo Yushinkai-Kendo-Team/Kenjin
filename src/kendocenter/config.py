@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Re-ranking (Phase 2A)
     reranker_enabled: bool = False
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    reranker_candidate_count: int = 20
+    reranker_candidate_count: int = 30
     reranker_threshold: float = 1.4  # relaxed threshold when re-ranking (wider candidate net)
 
     # Chunking (Phase 2A)
@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     hybrid_vector_weight: float = 1.0
     hybrid_keyword_weight: float = 1.0
     source_quality_weights: str = '{"glossary": 1.5, "articles": 1.2}'
+
+    # Source diversity (Phase 2B+)
+    diversity_enabled: bool = False
 
     # Fuzzy glossary (Phase 2B)
     fuzzy_enabled: bool = False

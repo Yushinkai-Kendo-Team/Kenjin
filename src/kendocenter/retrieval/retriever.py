@@ -5,12 +5,14 @@ via a cached lookup from the sources table.
 
 Phase 2A: Optional cross-encoder re-ranking for two-stage retrieval.
 Phase 2B: Hybrid search (BM25 + vector), fuzzy glossary matching.
+Phase 2B+: Source diversity — category-balanced result selection.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from typing import Any
 
 from kendocenter.config import settings
@@ -148,9 +150,11 @@ class Retriever:
         """
         n_results = n_results or settings.retrieval_top_k
 
-        # Candidate pool size: larger when re-ranking or hybrid
+        # Candidate pool size: larger when re-ranking or diversity needs more to select from
         fetch_k = n_results
         if self.reranker is not None:
+            fetch_k = max(n_results, settings.reranker_candidate_count)
+        elif settings.diversity_enabled:
             fetch_k = max(n_results, settings.reranker_candidate_count)
 
         # Hybrid search (Phase 2B): BM25 + vector merged via RRF
@@ -164,14 +168,47 @@ class Retriever:
             if "source" not in r.metadata:
                 r.metadata = self._resolve_metadata(r.metadata)
 
-        # Re-rank if enabled (graceful fallback on failure)
+        # Re-rank if enabled — keep larger pool when diversity will select from it
         if self.reranker is not None and resolved:
+            rerank_top_n = n_results
+            if settings.diversity_enabled:
+                rerank_top_n = max(n_results, settings.reranker_candidate_count)
             try:
-                resolved = self.reranker.rerank(query, resolved, top_n=n_results)
+                resolved = self.reranker.rerank(query, resolved, top_n=rerank_top_n)
             except Exception as e:
                 logger.warning("Re-ranking failed, using search order: %s", e)
 
+        # Diversity: ensure multiple source categories are represented
+        if settings.diversity_enabled and len(resolved) > n_results:
+            resolved = self._diversify(resolved, n_results)
+
         return resolved[:n_results]
+
+    def _diversify(
+        self,
+        results: list[SearchResult],
+        top_n: int,
+    ) -> list[SearchResult]:
+        """Source-key deduplication: keep only the best-scoring chunk per
+        source_key, which naturally spreads results across different sources
+        without forcing unrelated categories.
+
+        Example: if G1 appears 4 times, only the top-scoring G1 chunk is kept,
+        freeing 3 slots for other sources.
+        """
+        selected: list[SearchResult] = []
+        seen_sources: set[str] = set()
+
+        for r in results:
+            if len(selected) >= top_n:
+                break
+            src_key = r.metadata.get("source_key", r.metadata.get("src", ""))
+            if src_key and src_key in seen_sources:
+                continue  # skip duplicate source
+            seen_sources.add(src_key)
+            selected.append(r)
+
+        return selected
 
     def _vector_search(
         self,
